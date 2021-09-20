@@ -3,4 +3,6 @@ Replication codes and data for "The neglected epiphytism: accidental epiphytes d
 
 @epiphytes_script.R includes all analysis: diversity, nmds, regressions...
 
-@Data will become available after publishing
+@Raw data will become available after publishing
+
+ALL DATA (INCLUDING CODES) WILL BECOME AVAILABLE UPON PUBLICATION OR REQUEST
