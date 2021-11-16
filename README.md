@@ -8,3 +8,5 @@ Replication codes and data for "The neglected epiphytism: accidental epiphytes d
 @nmds_matrix_onlyacc.csv includes data used to perform the NMDS analysis.
 
 @stratification_data.csv includes data used to perform the stratification analysis.
+
+@asymptotic_diversity_profile_estimate.csv is the data needed to plot the asymptotic diversity profile.
