@@ -8,13 +8,16 @@ library(tableone)
 library(tidyverse)
 library(data.table)
 library(rstatix)
+library(vegan)
+library(viridis)
 
-#Data necessary to estimate the empirical diversity profile 
-df = read.csv('C:/Users/Master/FURB/André Luís de Gasper - Giesta/Biotropica_review 2/asymptotic_diversity_profile_estimated.csv', 
+#Data necessary to estimate the asymptotic diversity profile â€” only the empirical
+df = read.csv('asymptotic_diversity_profile_estimated.csv', 
               sep = ';')
 df = df %>% filter(Target == "Diversity")
 df$Target <- gsub("Diversity", "Estimated diversity", df$Target)
 
+#Plotting the asymptotic diversity profile
 div_profile = ggplot(df, aes(x=Order.q, y=Estimate, colour=Community)) +
   scale_x_continuous(breaks = c(0, 0.5, 1, 1.5, 2)) + 
   #scale_y_continuous(breaks = seq(0, 250, 25)) + 
@@ -35,14 +38,14 @@ div_profile = ggplot(df, aes(x=Order.q, y=Estimate, colour=Community)) +
   ggtitle("(a) Asymptotic diversity profile")
 
 {
-  svg("C:/Users/Master/FURB/André Luís de Gasper - Giesta/diversity_profile_new.svg", width = 6, height= 8)
+  svg("diversity_profile_new.svg", width = 6, height= 8)
   plot(div_profile)
   dev.off()
   }
 
 
   
-#Abundance vectors of accidentals only and genuine epiphytes only by host species
+#Abundance vectors of accidentals only and genuine epiphytes only, by host species
 acc_als=c(30,10,10,6,5,4,3,3,3,3,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1)
 sum(acc_als)
 acc_cya=c(40,23,14,13,6,5,4,4,4,4,4,3,3,3,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1)
@@ -58,11 +61,13 @@ mylist <- list('True epiphytes on A. setosa' = true_als,
                'Acc. epiphytes on C. phalerata' = acc_cya)
 
 
-#Running Hill Numbers with Cmax (2 * minimum abundance vector or max. reference sample size - whichever is larger, Chao et al. 2014)
+#Running Hill Numbers with Cmax (2 * minimum abundance vector or max. reference sample size - 
+#whichever is larger, Chao et al. 2014) â€” using the max reference sample of 408
 res_mylist <-iNEXT(mylist, q = c(0,1,2), datatype = "abundance", nboot = 200, endpoint = 408)
 
-#RAREFACTION AND EXTRAPOLATION
-#Fortifying dataframe for ggplot workaround
+
+##### RAREFACTION AND EXTRAPOLATION #####
+#Fortifying dataframe for ggplot2 workaround
 df <- ggplot2::fortify(res_mylist, type = 1)
 head(df)
 
@@ -91,39 +96,39 @@ div_plot <- ggplot(df, aes(x=x, y=y, colour=site)) +
   ggtitle("(b) Non-asymptotic size-based rarefaction and extrapolation")
 
 {
-svg("C:/Users/Master/FURB/André Luís de Gasper - Giesta/rarext_plot.svg", width = 6, height= 8)
+svg("rarext_plot.svg", width = 6, height= 8)
 plot(div_plot)
 dev.off()
 }
 
-#### MERGING FIGURES ####
+##### MERGING FIGURES #####
 figure_div <- ggpubr::ggarrange(div_profile, div_plot,
                             nrow = 2, ncol = 1, common.legend = F, legend = "bottom")
 figure_div
 
 {
-  png("C:/Users/Master/FURB/André Luís de Gasper - Giesta/new_plots.png", width = 8, height= 10, units = "in", res = 300)
+  png("new_plots.png", width = 8, height= 10, units = "in", res = 300)
   par(mar=c(5, 1, 5, 1))
   plot(figure_div)
   dev.off()
 }
 
-##################################
-#### QUASI-POISSON REGRESSION ####
-##################################
+
+##### QUASI-POISSON REGRESSION #####
+
 #Loading and adjusting data (both genuine and accidental epiphytes)
-acc <- read.csv('C:/Users/Master/FURB/André Luís de Gasper - Giesta/Biotropica_review/new_results/correlation_data_acc.csv', 
+acc <- read.csv('Biotropica_review/new_results/correlation_data_acc.csv', 
                 header = TRUE, sep = ';')
 names(acc) <- c("species", "humidity", "height", "cbh", "abundance", "richness")
 
 #Obtaining radius
-acc$radius = acc$cbh/3.141593
+acc$radius = acc$cbh/pi
 acc$radius = round(acc$radius, 2)
 
 #Approximating to the area of a cilinder as A=2Ï€rh+2Ï€r^2
 acc$area = (2*pi*acc$radius*acc$height)+(2*pi*(acc$radius^2))
 
-#Area variables correlated?
+#Are variables correlated?
 cor(acc$int, acc$area)
 
 #Interaction term to test later
@@ -136,11 +141,12 @@ acc <- acc %>% mutate_at(c("humidity", "area", "int"), ~(scale(.) %>% as.vector)
 #we use the quasi-Poisson family distribution to fit the data
 #performance::check_overdispersion(acc_model)
 
-#########################
-#### ABUNDANCE MODEL ####
-#########################
-ab_model <- glm(formula = abundance ~ height, family = quasipoisson(link="log"), data = acc)
-ab_model2 <- glm(formula = abundance ~ area + humidity + area*humidity, family = quasipoisson(link="log"), data = acc)
+
+##### ABUNDANCE MODEL #####
+ab_model <- glm(formula = abundance ~ height, 
+                family = quasipoisson(link="log"), data = acc)
+ab_model2 <- glm(formula = abundance ~ area + humidity + area*humidity, 
+                 family = quasipoisson(link="log"), data = acc)
 
 #Significant difference between models?
 anova(ab_model, ab_model2, test = "Chisq")
@@ -163,10 +169,9 @@ plot(acc$int, acc$abundance, pch = 16, xlab = "interaction", ylab = "ab")
 lines(xrange, yab)
 
 
-#########################
-#### RICHNESS MODEL #####
-#########################
-rich_model <- glm(formula = richness ~ area + humidity + area*humidity, family = quasipoisson(link="log"), data = acc)
+##### RICHNESS MODEL ######
+rich_model <- glm(formula = richness ~ area + humidity + area*humidity, 
+                  family = quasipoisson(link="log"), data = acc)
 #Regression parameters for richness model
 tableone::ShowRegTable(rich_model)
 #Pseudo R-squared for quasi-Poisson model: 1 - (residual.deviance/null.deviance)
@@ -185,19 +190,12 @@ plot(acc$int, acc$abundance, pch = 16, xlab = "interaction", ylab = "ab")
 lines(xrange, yab)
 
 
-
-######################
-### NMDS ANALYSIS ####
-######################
-library(vegan)
-library(viridis)
-library(ggplot2)
-
+#### NMDS ANALYSIS #####
 data <- read.csv('nmds_matrix_onlyacc.csv', header = TRUE, sep = ';')
 spp <- data[, 2:ncol(data)]
 group <- data$site
 
-#Binarizing abundance data (Jaccard distance)
+#Binarizing abundance data (Jaccard similarity index)
 spp <- ifelse(spp > 0,1,0)
 spp <- as.data.frame(spp)
 
@@ -205,7 +203,8 @@ spp <- as.data.frame(spp)
 adonis(formula = spp ~ group, permutations = 999, method = "jaccard")
 
 #Running NMDS
-nmds_results <- metaMDS(spp, k = 2, maxit = 999, trymax = 500, wscore = TRUE, distance = "jaccard")
+nmds_results <- metaMDS(spp, k = 2, maxit = 999, trymax = 500, 
+                        wscore = TRUE, distance = "jaccard")
 
 #Site data from NMDS object
 data_scores <- as.data.frame(scores(nmds_results))
@@ -216,11 +215,11 @@ colnames(data_scores)[3] <- "Host"
 
 #Creating the hull object
 grp.a <- data_scores[data_scores$Host == "A. setosa", ][chull(data_scores[data_scores$Host == 
-                                                                   "A. setosa", c("NMDS1", "NMDS2")]), ] #Hull for A. setosa
+                                                                   "A. setosa", c("NMDS1", "NMDS2")]), ] 
 grp.b <- data_scores[data_scores$Host == "C. phalerata", ][chull(data_scores[data_scores$Host == 
-                                                                   "C. phalerata", c("NMDS1", "NMDS2")]), ]  #Hull for C. phalerata
+                                                                   "C. phalerata", c("NMDS1", "NMDS2")]), ]
 
-hull.data <- rbind(grp.a, grp.b) #combine grp.a and grp.b
+hull.data <- rbind(grp.a, grp.b) #combine both hulls
 hull.data
 
 #Plotting
@@ -239,16 +238,12 @@ nmds_plot <- ggplot() +
         text = element_text(size = 18))
 
 
-png("C:/Users/ggrit/FURB/Andr? Lu?s de Gasper - Giesta/Biotropica_review/new_results/nmds.svg", width = 10, height= 8)
+png("Biotropica_review/new_results/nmds.svg", width = 10, height= 8)
 plot(nmds_plot)
   dev.off()
 
-##################
 
-#Stratification graph: the distribution of accidentals vs true epiphytes throughout strata
-
-library(data.table)
-
+##### STRATIFICATION GRAPH #####
 data = read.csv('new_results/strat_graph_biotropica.csv', header = TRUE, sep = ';')
 #data$class = factor(data$class)
 setDT(data)
@@ -267,7 +262,7 @@ abun_plot <- ggplot(data) +
 
 #Converting abundance to richness
 data$richness = data[, c("abun")]
-data$richness[data$richness > 0] <- 1 #ifelse() works too
+data$richness[data$richness > 0] <- 1
 
 rich_plot <- ggplot(data) +
   geom_bar(aes(x = class, y = richness, fill = class), stat = "identity") + facet_wrap(~int) + theme_bw() +
@@ -282,9 +277,7 @@ ggsave('new_results/strat_graph.jpg', width = 10, height = 10)
 dev.off()
 
 
-##################################
-#### HEIGHT-INTERVAL ANALYSIS ####
-##################################
+##### HEIGHT-INTERVAL ANALYSIS #####
 data = read.csv('strat_graph_biotropica.csv', header = TRUE, sep = ';')
 #data$class = factor(data$class)
 setDT(data)
@@ -293,7 +286,6 @@ data[int%in% "B", int := "Medium (1-2m)"]
 data[int%in% "C", int := "Upper (2-3m)"]
 
 data = subset(data, class == "Acc")
-
 data = subset(data, abun > 0)
 
 # Build the linear model
@@ -321,6 +313,6 @@ ggboxplot(data, x = "int", y = "abun") +
   ) + ylab("Abundance") + xlab("Height class") + theme_bw()
 
 
-ggsave("C:/Users/Master/FURB/André Luís de Gasper - Giesta/Biotropica_review/new_results/kruskal_newnames.png", height = 10, width = 10)
+ggsave("new_results/kruskal_newnames.png", height = 10, width = 10)
 
 rm(list=ls())
