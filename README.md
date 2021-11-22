@@ -1,5 +1,5 @@
 # biotropica_treeferns-epiphytes
-Replication codes and data for "The neglected epiphytism: accidental epiphytes dominate diversity on tree ferns in the subtropical Atlantic rainforest." Working paper.
+Replication codes and data for "The neglected epiphytism: accidental epiphytes dominate diversity on tree ferns in the subtropical Atlantic rainforest." Biotropica.
 
 @epiphytes_script.R includes all analysis performed.
 
